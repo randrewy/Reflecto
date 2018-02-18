@@ -71,6 +71,30 @@ void test_flatten() {
     std::cout << "\n";
 }
 
+struct Test4 {
+    int i;
+    int& ri;
+};
+
+void test_reference() {
+    std::cout << "\ntest_reference:\n";
+
+    int value = 42;
+
+    Test4 t { -3, value};
+
+    auto view = reflecto::get_view(t);
+    std::cout << std::get<0>(view) << " " << std::get<1>(view) << "\n";
+    reflecto::for_each_member(t, [](auto&& v) { std::cout << v << " ";});
+
+    std::cout << "\n";
+
+    std::get<1>(view)++;
+    std::cout << std::get<0>(view) << " " << std::get<1>(view) << "\n";
+    reflecto::for_each_member(t, [](auto&& v) { std::cout << v << " ";});
+    std::cout << "\n";
+}
+
 struct Test3 {
     int i = 0;
     Test2 t2;
@@ -99,6 +123,7 @@ void test_pretty_print() {
     );
     std::cout << "}\n";
 }
+
 
 #if defined(REFLECTO_SUPPORT_BITFIELDS)
 struct WithFields {
@@ -133,6 +158,7 @@ int main()
 {
     test_simple();
     test_flatten();
+    test_reference();
     test_pretty_print();
 
     #if defined(REFLECTO_SUPPORT_BITFIELDS)
