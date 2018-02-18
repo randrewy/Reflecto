@@ -70,7 +70,7 @@ void example() {
 Not needed. Place headers where you want and `include "reflecto.h"`
 
 #### About MVSC
-MVSC lacks `std::is_aggregate` trait, making it impossible to ckeck if struct flattening is possible. You can use the library though without that checks. Define `REFLECTO_UNSAFE_BUT_USABLE` before you include the header.
+MVSC lacks `std::is_aggregate` trait, making it impossible to ckeck if struct flattening is possible. You can use the library though without that checks. Define `REFLECTO_UNSAFE_BUT_USABLE` before you include the header. Remember to be **extremely careful** if you do that
 
 #### About bitfields
 Bitfiled reflection support is disabled by default. Though you won't get any errors if you try to reflect a struct with bitfields as I don't know a way to detect if there are any. In some cases that will work. The reason it is disabled is extremely big template recursion even on small types.
