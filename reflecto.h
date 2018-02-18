@@ -3,7 +3,8 @@
 #include <tuple>
 #include <functional>
 
-#if defined(__clang__) && defined(_MSC_VER)
+// clang misses is_aggregate ?!
+#if defined(__clang__)
 namespace std {
     template<typename T>
     struct is_aggregate : bool_constant<__is_aggregate(remove_cv_t<T>)> { };
@@ -11,7 +12,7 @@ namespace std {
     template<typename T>
     inline constexpr bool is_aggregate_v = is_aggregate<T>::value;
 }
-#elif defined(REFLECTO_UNSAFE_BUT_USABLE) && defined(_MSC_VER)
+#elif defined(REFLECTO_UNSAFE_BUT_USABLE) && (defined(_MSC_VER) && !defined(__clang__))
 namespace std {
     template<typename _Tp>
     struct is_aggregate : bool_constant<true> { };
