@@ -125,6 +125,41 @@ void test_pretty_print() {
 }
 
 
+struct Inner {
+    std::string s = "str";
+};
+
+struct Struct {
+    int i = 1;
+    double j = 2.0;
+    Inner inner {};
+};
+void example() {
+    Struct test;
+
+    // create a tuple of references to members (first layer only)
+    auto view = reflecto::get_view(test);
+    std::cout << std::get<0>(view) << " " << std::get<1>(view) << " "
+              << std::get<2>(view).s << "\n"; // note .s here. Inner cannot be put into `cout` directly
+
+    // call function for each member (first layer only)
+    reflecto::for_each_member(test, [](auto&& v) { std::cout << sizeof(v) << " ";});
+    std::cout << "\n";
+
+    //
+    reflecto::for_each_member_flatten<ActionOstreamOrFlat>(
+                // what struct to traverce
+                test,
+                // call this if Action is Call. you can add extra arguments `size_t level, size_t index` before `auto&& v`
+                [](auto&& v) {
+                    std::cout << v << " ";
+                }
+                // add void (size_t level, size_t index) callback on each flattening action
+                // add void (size_t level, size_t index) callback when we pop from inside of most inner struct
+    );
+}
+
+
 #if defined(REFLECTO_SUPPORT_BITFIELDS)
 struct WithFields {
     unsigned int i1 : 1;
@@ -160,6 +195,9 @@ int main()
     test_flatten();
     test_reference();
     test_pretty_print();
+
+    std::cout << "example()\n";
+    example();
 
     #if defined(REFLECTO_SUPPORT_BITFIELDS)
     test_bitfields();
