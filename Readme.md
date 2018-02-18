@@ -15,11 +15,13 @@ Original idea was taken from [here](https://github.com/apolukhin/magic_get). Don
 template<size_t Level, size_t Index, typename Type, typename = void>
 struct can_ostream : std::false_type {};
 template<size_t Level, size_t Index, typename Type>
-struct can_ostream<Level, Index, Type, std::void_t<decltype(std::cout << std::declval<Type>())>> : std::true_type {};
+struct can_ostream<Level, Index, Type, std::void_t<decltype(std::cout << std::declval<Type>())>>
+    : std::true_type {};
 
-// Used in flattening traverser. Will be instantiated for each member in structure with its `level` `index` and `type`
-// static value member is Action {Call/Flat/Skip } that should be done with the member depending on the parameters
-// so here we flat struct members untill we can print them
+// Used in flattening traverser. Will be instantiated for each member in structure with its 
+// `level` `index` and `type`. Static value member is Action {Call/Flat/Skip } that should
+// be done with the member depending on the parameters.
+// Here we flatten struct members untill we can print them
 template<size_t Level, size_t Index, typename Type>
 struct ActionOstreamOrFlat {
     static const reflecto::VisitAction value = can_ostream<Level, Index, Type>::value
@@ -52,12 +54,14 @@ void example() {
     reflecto::for_each_member_flatten<ActionOstreamOrFlat>(
                 // what struct to traverce
                 test,
-                // call this if Action is Call. you can add extra arguments `size_t level, size_t index` before `auto&& v`
+                // call this if Action value is `Call`
+                // you can add extra arguments `size_t level, size_t index` before `auto&& v`
                 [](auto&& v) {
                     std::cout << v << " ";
                 }
                 // add void (size_t level, size_t index) callback on each flattening action
-                // add void (size_t level, size_t index) callback when we pop from inside of most inner struct
+                // add void (size_t level, size_t index) callback when we pop from inside of
+                //                                       most inner struct
     );
 }
 ```
@@ -69,7 +73,7 @@ Not needed. Place headers where you want and `include "reflecto.h"`
 MVSC lacks `std::is_aggregate` trait, making it impossible to ckeck if struct flattening is possible. You can use the library though without that checks. Define `REFLECTO_UNSAFE_BUT_USABLE` before you include the header.
 
 #### About bitfields
-Bitfiled reflection support is disabled by default. Though you won't get any errors if you try to reflect a struct with bitfields as I don;t know a way to detect if there are any. In some cases that will work. The reason it is disabled is extremely big template recursion even on small types.
+Bitfiled reflection support is disabled by default. Though you won't get any errors if you try to reflect a struct with bitfields as I don't know a way to detect if there are any. In some cases that will work. The reason it is disabled is extremely big template recursion even on small types.
 To use this feature define `REFLECTO_SUPPORT_BITFIELDS` before you include `reflecto` and it's almost sure you'll need to increase template recursion limit with compiler flags.
 
 #### About generator
