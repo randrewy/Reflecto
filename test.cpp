@@ -2,6 +2,7 @@
 #include <string>
 
 #define REFLECTO_UNSAFE_BUT_USABLE
+//#define REFLECTO_SUPPORT_BITFIELDS
 #include "reflecto.h"
 
 
@@ -99,11 +100,44 @@ void test_pretty_print() {
     std::cout << "}\n";
 }
 
+#if defined(REFLECTO_SUPPORT_BITFIELDS)
+struct WithFields {
+    unsigned int i1 : 1;
+    unsigned int i2 : 1;
+    unsigned int i3 : 1;
+    unsigned int i4 : 1;
+    unsigned int i5 : 1;
+    unsigned int i6 : 1;
+    unsigned int i7 : 1;
+    unsigned int i8 : 1;
+    unsigned int i9 : 1;
+};
+
+void test_bitfields() {
+    std::cout << "\ntest_bitfields:\n";
+    std::cout << sizeof (WithFields) << " " << reflecto::details::count_members<WithFields>() << "\n";
+
+    WithFields wf;
+
+    wf.i7 = 1;
+
+    std::cout << wf.i1 << wf.i2 << wf.i3 << wf.i4 <<  wf.i5 << wf.i6 << wf.i7 << wf.i8 << wf.i9 << "\n" ;
+    reflecto::for_each_member(wf, [](auto&& v) { std::cout << v;});
+    std::cout << "\n";
+}
+
+#endif
+
 
 int main()
 {
     test_simple();
     test_flatten();
     test_pretty_print();
+
+    #if defined(REFLECTO_SUPPORT_BITFIELDS)
+    test_bitfields();
+    #endif
+
     return 0;
 }

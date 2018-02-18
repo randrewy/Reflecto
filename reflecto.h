@@ -27,6 +27,12 @@ namespace std {
 #define RECURCIVE_EXTRA_CHECK(Tuple, Index)
 #endif // REXURCIVE_EXTRA_CHECK for MVS
 
+#if defined(REFLECTO_SUPPORT_BITFIELDS)
+#define BITFIELD_COUNT_MULTIPLIER 8
+#else
+#define BITFIELD_COUNT_MULTIPLIER 1
+#endif // if defined(REFLECTO_DO_NOT_SUPPORT_BITFIELDS)
+
 namespace reflecto {
     enum class VisitAction { Call, Flat, Skip };
 
@@ -103,7 +109,7 @@ namespace reflecto::details {
     struct try_create<T, N, std::void_t<decltype (try_create_with_any<T>(std::make_index_sequence<N>{}))>> : std::true_type {};
 
 
-    template<typename T, size_t N = sizeof(T)>
+    template<typename T, size_t N = sizeof(T) * BITFIELD_COUNT_MULTIPLIER>
     constexpr size_t count_members() {
         if constexpr (!std::is_aggregate_v<T>) {
             return 0;
