@@ -1,5 +1,7 @@
 #include <iostream>
 #include <string>
+
+#define REFLECTO_UNSAFE_BUT_USABLE
 #include "reflecto.h"
 
 

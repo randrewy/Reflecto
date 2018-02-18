@@ -3,6 +3,30 @@
 #include <tuple>
 #include <functional>
 
+#if defined(__clang__) && defined(_MSC_VER)
+namespace std {
+    template<typename T>
+    struct is_aggregate : bool_constant<__is_aggregate(remove_cv_t<T>)> { };
+
+    template<typename T>
+    inline constexpr bool is_aggregate_v = is_aggregate<T>::value;
+}
+#elif defined(REFLECTO_UNSAFE_BUT_USABLE) && defined(_MSC_VER)
+namespace std {
+    template<typename _Tp>
+    struct is_aggregate : bool_constant<true> { };
+
+    template<typename T>
+    inline constexpr bool is_aggregate_v = is_aggregate<T>::value;
+}
+#endif
+
+#if defined(_MSC_VER)
+#define RECURCIVE_EXTRA_CHECK(Tuple, Index) if constexpr ((Index) + 1 < std::tuple_size_v<Tuple>)
+#else
+#define RECURCIVE_EXTRA_CHECK(Tuple, Index)
+#endif // REXURCIVE_EXTRA_CHECK for MVS
+
 namespace reflecto {
     enum class VisitAction { Call, Flat, Skip };
 
@@ -140,7 +164,7 @@ namespace reflecto::details {
                             std::forward<FlatEnd>(flatEnd)
                 );
                 flatEnd(Level, Index);
-                for_each_flatten<Level, Index + 1, Action, Silent>(
+                RECURCIVE_EXTRA_CHECK(Tuple, Index) for_each_flatten<Level, Index + 1, Action, Silent>(
                             std::forward<Tuple>(tuple),
                             std::forward<Function>(function),
                             std::forward<FlatStart>(flatStart),
@@ -148,7 +172,7 @@ namespace reflecto::details {
                 );
             } else if constexpr (Action<Level, Index, ArgumentType>::value == VisitAction::Call) {
                 call_on_member(Level, Index, std::forward<ArgumentType>(std::get<Index>(std::forward<Tuple>(tuple))), std::forward<Function>(function));
-                for_each_flatten<Level, Index + 1, Action, Silent>(
+                RECURCIVE_EXTRA_CHECK(Tuple, Index) for_each_flatten<Level, Index + 1, Action, Silent>(
                             std::forward<Tuple>(tuple),
                             std::forward<Function>(function),
                             std::forward<FlatStart>(flatStart),
