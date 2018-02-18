@@ -52,7 +52,7 @@ struct Test {
 struct Test2 {
     int i = 123;
     double d = 1.23;
-    Test t;
+    Test t {};
     float f = -1.23f;
 };
 
@@ -97,7 +97,7 @@ void test_reference() {
 
 struct Test3 {
     int i = 0;
-    Test2 t2;
+    Test2 t2 {};
     double d = 0;
 };
 
