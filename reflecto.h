@@ -1,5 +1,4 @@
-#ifndef REFLECTO_H
-#define REFLECTO_H
+#pragma once
 #include <tuple>
 #include <functional>
 
@@ -23,15 +22,15 @@ namespace std {
 #endif
 
 #if defined(_MSC_VER)
-#define RECURCIVE_EXTRA_CHECK(Tuple, Index) if constexpr ((Index) + 1 < std::tuple_size_v<Tuple>)
+#define REFLECTO_RECURCIVE_EXTRA_CHECK(Tuple, Index) if constexpr ((Index) + 1 < std::tuple_size_v<Tuple>)
 #else
-#define RECURCIVE_EXTRA_CHECK(Tuple, Index)
+#define REFLECTO_RECURCIVE_EXTRA_CHECK(Tuple, Index)
 #endif // REXURCIVE_EXTRA_CHECK for MVS
 
 #if defined(REFLECTO_SUPPORT_BITFIELDS)
-#define BITFIELD_COUNT_MULTIPLIER 8
+#define REFLECTO_BITFIELD_COUNT_MULTIPLIER 8
 #else
-#define BITFIELD_COUNT_MULTIPLIER 1
+#define REFLECTO_BITFIELD_COUNT_MULTIPLIER 1
 #endif // if defined(REFLECTO_DO_NOT_SUPPORT_BITFIELDS)
 
 namespace reflecto {
@@ -83,6 +82,7 @@ namespace reflecto::generated {
     struct Nill{};
     #define CONSTEXPR_STRUCTURED /* structured binding are not constexpr yet*/
     #include "generated.hxx"
+    #undef CONSTEXPR_STRUCTURED
 } // namespace reflecto::generated
 
 
@@ -110,7 +110,7 @@ namespace reflecto::details {
     struct try_create<T, N, std::void_t<decltype (try_create_with_any<T>(std::make_index_sequence<N>{}))>> : std::true_type {};
 
 
-    template<typename T, size_t N = sizeof(T) * BITFIELD_COUNT_MULTIPLIER>
+    template<typename T, size_t N = sizeof(T) * REFLECTO_BITFIELD_COUNT_MULTIPLIER>
     constexpr size_t count_members() {
         if constexpr (!std::is_aggregate_v<T>) {
             return 0;
@@ -171,7 +171,7 @@ namespace reflecto::details {
                             std::forward<FlatEnd>(flatEnd)
                 );
                 flatEnd(Level, Index);
-                RECURCIVE_EXTRA_CHECK(Tuple, Index) for_each_flatten<Level, Index + 1, Action, Silent>(
+                REFLECTO_RECURCIVE_EXTRA_CHECK(Tuple, Index) for_each_flatten<Level, Index + 1, Action, Silent>(
                             std::forward<Tuple>(tuple),
                             std::forward<Function>(function),
                             std::forward<FlatStart>(flatStart),
@@ -179,7 +179,7 @@ namespace reflecto::details {
                 );
             } else if constexpr (Action<Level, Index, ArgumentType>::value == VisitAction::Call) {
                 call_on_member(Level, Index, std::forward<ArgumentType>(std::get<Index>(std::forward<Tuple>(tuple))), std::forward<Function>(function));
-                RECURCIVE_EXTRA_CHECK(Tuple, Index) for_each_flatten<Level, Index + 1, Action, Silent>(
+                REFLECTO_RECURCIVE_EXTRA_CHECK(Tuple, Index) for_each_flatten<Level, Index + 1, Action, Silent>(
                             std::forward<Tuple>(tuple),
                             std::forward<Function>(function),
                             std::forward<FlatStart>(flatStart),
@@ -244,6 +244,5 @@ namespace reflecto {
     }
 
 } // namespace reflecto
-
-
-#endif // REFLECTO_H
+#undef REFLECTO_RECURCIVE_EXTRA_CHECK
+#undef REFLECTO_BITFIELD_COUNT_MULTIPLIER
