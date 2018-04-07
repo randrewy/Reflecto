@@ -77,4 +77,4 @@ Bitfiled reflection support is disabled by default. Though you won't get any err
 To use this feature define `REFLECTO_SUPPORT_BITFIELDS` before you include `reflecto` and it's almost sure you'll need to increase template recursion limit with compiler flags.
 
 #### About generator
-`generate.py` is used to generate bolierplate structured binding code. Maximum 63 members is a default value. Feel free to regenerate `generated.hxx` if you need more. Use `generate.py <max_members: int>`
+Normally uou wouldn't have to use `generate.py` script that is used to generate internal bolierplate structured binding code. Maximum 63 members is a default value. Feel free to run `generated.hxx` if you need more. Use `generate.py <max_members: int>`
