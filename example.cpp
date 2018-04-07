@@ -6,14 +6,14 @@
 #include "reflecto.h"
 
 
-template<size_t Level, size_t Index, typename Type, typename = void>
+template<typename Type, typename = void>
 struct can_ostream : std::false_type {};
-template<size_t Level, size_t Index, typename Type>
-struct can_ostream<Level, Index, Type, std::void_t<decltype(std::cout << std::declval<Type>())>> : std::true_type {};
+template<typename Type>
+struct can_ostream<Type, std::void_t<decltype(std::cout << std::declval<Type>())>> : std::true_type {};
 
 template<size_t Level, size_t Index, typename Type>
 struct ActionOstreamOrFlat {
-    static const reflecto::VisitAction value = can_ostream<Level, Index, Type>::value
+    static const reflecto::VisitAction value = can_ostream<Type>::value
             ? reflecto::VisitAction::Call
             : reflecto::VisitAction::Flat;
 };

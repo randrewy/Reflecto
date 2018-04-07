@@ -36,10 +36,10 @@ If neither reflect, nor call can be performed on class member function will asse
 ## Example
 ```c++
 // SFINAE helper to decide if type can be output in ostream (cout)
-template<size_t Level, size_t Index, typename Type, typename = void>
+template<typename Type, typename = void>
 struct can_ostream : std::false_type {};
-template<size_t Level, size_t Index, typename Type>
-struct can_ostream<Level, Index, Type, std::void_t<decltype(std::cout << std::declval<Type>())>>
+template<typename Type>
+struct can_ostream<Type, std::void_t<decltype(std::cout << std::declval<Type>())>>
     : std::true_type {};
 
 // Used in flattening traverser. Will be instantiated for each member in structure with its 
@@ -48,7 +48,7 @@ struct can_ostream<Level, Index, Type, std::void_t<decltype(std::cout << std::de
 // Here we flatten struct members untill we can print them
 template<size_t Level, size_t Index, typename Type>
 struct ActionOstreamOrFlat {
-    static const reflecto::VisitAction value = can_ostream<Level, Index, Type>::value
+    static const reflecto::VisitAction value = can_ostream<Type>::value
             ? reflecto::VisitAction::Call
             : reflecto::VisitAction::Flat;
 };
