@@ -9,6 +9,30 @@ Original idea was taken from [here](https://github.com/apolukhin/magic_get). Don
   - Bitfields reflection is optionally supported
   - Works with gcc/clang/mvsc (with some limitations)
 
+### Interface:
+1. Get the tuple of references to argument memebers:
+```c++
+reflecto::get_view(arg)
+```
+2. Iterate over all members and call specified callback function for each:
+```c++
+reflecto::for_each_member(arg, callback)
+```
+3. Iterate over all members and process each depending on `Action::value`:
+```c++
+reflecto::for_each_member_flatten<Action>(arg, callback, start_callback, end_callback)
+```
+`template<size_t Level, size_t Index, typename Type> struct Action{/*...*/}` is instantiated for each member with nested `Level` value, `Index` of member on current level, and it's `Type`. Member `VisitAction value` controls the execution:
+  - `VisitAction::Call`: call specified callback on member
+  - `VisitAction::Flat`: recursively calls `for_each_member_flatten` on member
+  - `VisitAction::Skip`: do nothing
+  
+`callback` is called on members. Signature should be either `callback(T& arg)` or `callback(size_t level, size_t index, T& arg)`
+
+`start_callback, end_callback` are optional. Called when recursive flatten starts/ends with `level, index` args.
+
+If neither reflect, nor call can be performed on class member function will assert if `Action::value != VisitAction::Skip`. To silently skip such errors use `for_each_member_flatten_silent` function.
+
 ## Example
 ```c++
 // SFINAE helper to decide if type can be output in ostream (cout)
