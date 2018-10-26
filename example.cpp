@@ -1,7 +1,7 @@
 #include <iostream>
 #include <string>
 
-#define REFLECTO_UNSAFE_BUT_USABLE
+//#define REFLECTO_UNSAFE_BUT_USABLE
 //#define REFLECTO_SUPPORT_BITFIELDS
 #include "reflecto.h"
 
