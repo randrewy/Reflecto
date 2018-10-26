@@ -3,7 +3,7 @@
 #include <functional>
 
 // clang misses is_aggregate ?!
-#if defined(__clang__)
+#if defined(__clang__) && __clang_major__ < 6
 namespace std {
     template<typename T>
     struct is_aggregate : bool_constant<__is_aggregate(remove_cv_t<T>)> { };
@@ -11,7 +11,7 @@ namespace std {
     template<typename T>
     inline constexpr bool is_aggregate_v = is_aggregate<T>::value;
 }
-#elif defined(REFLECTO_UNSAFE_BUT_USABLE) && (defined(_MSC_VER) && !defined(__clang__))
+#elif defined(REFLECTO_UNSAFE_BUT_USABLE) && (defined(_MSC_VER) && _MSC_VER < 1900 && !defined(__clang__))
 namespace std {
     template<typename _Tp>
     struct is_aggregate : bool_constant<true> { };
@@ -21,7 +21,7 @@ namespace std {
 }
 #endif
 
-#if defined(_MSC_VER)
+#if defined(_MSC_VER) && _MSC_VER < 1900
 #define REFLECTO_RECURCIVE_EXTRA_CHECK(Tuple, Index) if constexpr ((Index) + 1 < std::tuple_size_v<Tuple>)
 #else
 #define REFLECTO_RECURCIVE_EXTRA_CHECK(Tuple, Index)
