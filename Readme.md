@@ -4,7 +4,7 @@ Original idea was taken from [here](https://github.com/apolukhin/magic_get). Don
 
 ### Features and limitations
   - Requires c++17 support
-  - Works only with aggregate types
+  - Works only with **baseless** aggregate types
   - Arrays are treated as not-an-aggregate
   - Bitfields reflection is optionally supported
   - Works with gcc/clang/mvsc (with some limitations)
@@ -12,7 +12,8 @@ Original idea was taken from [here](https://github.com/apolukhin/magic_get). Don
 ### Interface:
 1. Get the tuple of references to argument memebers:
 ```c++
-reflecto::get_view(arg)
+reflecto::get_view(arg)   // direct members
+reflecto::flat_view(arg)  // flatten structure
 ```
 2. Iterate over all members and call specified callback function for each:
 ```c++
@@ -20,9 +21,14 @@ reflecto::for_each_member(arg, callback)
 ```
 3. Iterate over all members and process each depending on `Action::value`:
 ```c++
+reflecto::for_each_member_flatten(arg, callback, start_callback, end_callback)
 reflecto::for_each_member_flatten<Action>(arg, callback, start_callback, end_callback)
 ```
-`template<size_t Level, size_t Index, typename Type> struct Action{/*...*/}` is instantiated for each member with nested `Level` value, `Index` of member on current level, and it's `Type`. Member `VisitAction value` controls the execution:
+Default _Action_ is to flatten if possible, if you want different behaviour specify custom template:
+```c++
+template<size_t Level, size_t Index, typename Type> struct Action{/*...*/}
+```
+It will be instantiated for each member with nested `Level` value, `Index` of member on current level, and it's `Type`. Member `VisitAction value` controls the execution:
   - `VisitAction::Call`: call specified callback on member
   - `VisitAction::Flat`: recursively calls `for_each_member_flatten` on member
   - `VisitAction::Skip`: do nothing
@@ -92,6 +98,15 @@ void example() {
 
 ## Installation
 Not needed. Place headers where you want and `include "reflecto.h"`
+
+#### About base classes
+It's not possible to use the library with derived types. However, if some type has only empty bases, this 
+can be bypassed by specializing a helper template class:
+```c++
+namespace reflecto {
+    template<> struct CountBases<Derived> { constexpr static size_t value = 1; };
+}
+```
 
 #### About MVSC
 Older MVSC lacks `std::is_aggregate` trait, making it impossible to ckeck if struct flattening is possible. You can use the library though without that checks. Define `REFLECTO_UNSAFE_BUT_USABLE` before you include the header. Remember to be **extremely careful** if you do that

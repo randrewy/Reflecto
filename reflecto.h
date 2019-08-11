@@ -34,36 +34,29 @@ namespace std {
 #endif // if defined(REFLECTO_DO_NOT_SUPPORT_BITFIELDS)
 
 namespace reflecto {
+    namespace details {
+        template<typename T>
+        constexpr bool is_flattable_v = std::is_aggregate_v<T>;
+    }
+
     enum class VisitAction { Call, Flat, Skip };
 
     template<size_t Level, size_t Index, typename Type>
-    struct FlatIfNotTrivial {
-        constexpr static const VisitAction value = std::is_trivial_v<std::decay_t<Type>>
-            ? VisitAction::Call
-            : VisitAction::Flat;
+    struct FlatIfPossible {
+        constexpr static const VisitAction value = details::is_flattable_v<std::decay_t<Type>>
+            ? VisitAction::Flat
+            : VisitAction::Call;
     };
 
-    // only l-values
     template<typename T>
-    constexpr auto get_view(T& t);
-
-    template<typename T, typename Function>
-    constexpr void for_each_member(T&& t, Function&& f);
-
-    template<template<size_t, size_t, typename, typename...> typename FlatIf, typename T, typename Function, typename FlatStart, typename FlatEnd>
-    constexpr void for_each_member_flatten(T&& t, Function&& f, FlatStart&& fs, FlatEnd&& fe);
-
-    template<template<size_t, size_t, typename, typename...> typename FlatIf, typename T, typename Function>
-    constexpr void for_each_member_flatten(T&& t, Function&& f);
-
-    template<template<size_t, size_t, typename, typename...> typename FlatIf, typename T, typename Function, typename FlatStart, typename FlatEnd>
-    constexpr void for_each_member_flatten_silent(T&& t, Function&& f, FlatStart&& fs, FlatEnd&& fe);
-
-    template<template<size_t, size_t, typename, typename...> typename FlatIf, typename T, typename Function>
-    constexpr void for_each_member_flatten_silent(T&& t, Function&& f);
-
+    struct CountBases {
+        static_assert (sizeof (T) != sizeof (T),
+        "Reflecto is not able to detect how many base classes a type has."
+        " In order to use a derived from empty-base class specify this template manualy"
+        " with correct number of bases");
+        constexpr static size_t value = 0;
+    };
 } // namespace reflecto
-
 
 namespace reflecto::functional {
 
@@ -97,7 +90,25 @@ namespace reflecto::details {
         constexpr operator T&();
     };
 
-    inline constexpr void do_nothing_callback(size_t level, size_t index) { (void)(level); (void)(index); }
+    template<class T>
+    struct AnyBase {
+        template<class U, class = std::enable_if_t<std::is_base_of_v<U, T>>>
+        operator U&();
+    };
+
+    struct TupleCatReducer {
+        template<typename ...Args>
+        inline constexpr auto operator() (Args&& ...args) {
+            return std::tuple_cat(std::forward<Args>(args)...);
+        }
+    };
+
+
+    template<class, class = void>
+    struct has_any_base : std::false_type {};
+
+    template<class T>
+    struct has_any_base<T, std::void_t<decltype(T{ AnyBase<T>{} })>> : std::true_type {};
 
 
     template<typename T, size_t... I>
@@ -112,15 +123,17 @@ namespace reflecto::details {
 
     template<typename T, size_t N = sizeof(T) * REFLECTO_BITFIELD_COUNT_MULTIPLIER>
     constexpr size_t count_members() {
-        if constexpr (!std::is_aggregate_v<T>) {
+        if constexpr (!is_flattable_v<T>) {
             return 0;
         } else if constexpr (reflecto::details::try_create<T, N>{}) {
+            if constexpr (has_any_base<T>::value) {
+                return static_cast<size_t>(N - CountBases<T>::value);
+            }
             return N;
         } else {
             return count_members<T, N - 1>(); // binary search here?
         }
     }
-
 
     // const object tuple_size SFINAE issues workaround.
     // constness is passed in Const parameter and object is passed as mutable
@@ -129,6 +142,28 @@ namespace reflecto::details {
         return generated::as_tuple<Const>(const_cast<T&>(t), std::integral_constant<size_t, count_members<T>()>{});
     }
 
+    template<typename Type>
+    constexpr auto flat_view(Type& t) {
+        if constexpr (!is_flattable_v<std::decay_t<Type>>) {
+            return std::tie(t);
+        } else {
+            auto view = get_view<std::is_const_v<Type>>(t);
+            constexpr size_t tuple_size = std::tuple_size_v<decltype(view)>;
+            return for_each_unwrap_seq(
+                std::make_index_sequence<tuple_size>{},
+                view,
+                [](auto &e) { return flat_view(e); },
+                details::TupleCatReducer{}
+            );
+        }
+    }
+
+    template <std::size_t... I, typename Tuple, typename Function, typename Reduce>
+    constexpr auto for_each_unwrap_seq(std::index_sequence<I...>, Tuple&& t, Function&& f, Reduce = Reduce{}) {
+        return Reduce{}(
+            f(std::get<I>(std::forward<Tuple>(t)))...
+        );
+    }
 
     template <std::size_t... I, typename Tuple, typename Function>
     constexpr void for_each_unwrap_seq(std::index_sequence<I...>, Tuple&& t, Function&& f) {
@@ -157,8 +192,9 @@ namespace reflecto::details {
     constexpr void for_each_flatten(Tuple&& tuple, Function&& function, FlatStart&& flatStart, FlatEnd&& flatEnd) {
         if constexpr (Index < std::tuple_size_v<Tuple>) {
             using ArgumentType = std::tuple_element_t<Index, Tuple>;
+            constexpr auto action = Action<Level, Index, ArgumentType>::value;
 
-            if constexpr (Action<Level, Index, ArgumentType>::value == VisitAction::Flat && std::is_aggregate_v<std::decay_t<ArgumentType>>) {
+            if constexpr (action == VisitAction::Flat && is_flattable_v<std::decay_t<ArgumentType>>) {
                 flatStart(Level, Index);
                 for_each_flatten<Level + 1, 0, Action, Silent>(
                             get_view<std::is_const_v<ArgumentType>>(
@@ -177,7 +213,7 @@ namespace reflecto::details {
                             std::forward<FlatStart>(flatStart),
                             std::forward<FlatEnd>(flatEnd)
                 );
-            } else if constexpr (Action<Level, Index, ArgumentType>::value == VisitAction::Call) {
+            } else if constexpr (action == VisitAction::Call) {
                 call_on_member(Level, Index, std::forward<ArgumentType>(std::get<Index>(std::forward<Tuple>(tuple))), std::forward<Function>(function));
                 REFLECTO_RECURCIVE_EXTRA_CHECK(Tuple, Index) for_each_flatten<Level, Index + 1, Action, Silent>(
                             std::forward<Tuple>(tuple),
@@ -186,14 +222,15 @@ namespace reflecto::details {
                             std::forward<FlatEnd>(flatEnd)
                 );
             } else {
-                if constexpr (Action<Level, Index, ArgumentType>::value != VisitAction::Skip && !Silent) {
-                    PrintType<std::decay_t<ArgumentType>>{};
-                    static_assert(std::is_aggregate_v<std::decay_t<ArgumentType>>, "Neither unpack, nor call can be performed on class member");
+                if constexpr (action != VisitAction::Skip && !Silent) {
+                    static_assert(PrintType<std::decay_t<ArgumentType>>{}, "Neither unpack, nor call can be performed on class member");
                 }
             }
         }
     }
 
+    inline constexpr void do_nothing_callback(size_t level, size_t index) { (void)(level); (void)(index); }
+    using DoNothingT = decltype(do_nothing_callback);
 }  // namespace reflecto::details
 
 
@@ -201,46 +238,51 @@ namespace reflecto {
 
     template<typename Type>
     constexpr auto get_view(Type& t) {
-        static_assert(std::is_aggregate_v<std::decay_t<Type>>, "Cannot get view of non-aggregate type or an array");
-        if constexpr (std::is_aggregate_v<std::decay_t<Type>>) {
+        static_assert(details::is_flattable_v<std::decay_t<Type>>, "Cannot get view of non-aggregate type or an array");
+        if constexpr (details::is_flattable_v<std::decay_t<Type>>) {
             return details::get_view<std::is_const_v<Type>>(t);
         } else {
             return generated::Nill{};
         }
     }
 
+    template<typename Type>
+    constexpr auto flat_view(Type& t) {
+        return details::flat_view(t);
+    }
+
+    template<size_t I, typename Type>
+    constexpr auto flat_get(Type& t) {
+        return std::get<I>(flat_view(t));
+    }
+
     template <typename Type, typename Function>
     constexpr void for_each_member(Type&& t, Function&& f) {
-        static_assert(std::is_aggregate_v<std::decay_t<Type>>, "Cannot iterate over non-aggregate type or an array");
-        if constexpr (std::is_aggregate_v<std::decay_t<Type>>) {
+        static_assert(details::is_flattable_v<std::decay_t<Type>>, "Cannot iterate over non-aggregate type or an array");
+        if constexpr (details::is_flattable_v<std::decay_t<Type>>) {
             details::for_each(get_view(t), std::forward<Function>(f));
         }
     }
 
-    template<template<size_t, size_t, typename, typename...> typename Action, typename Type, typename Function, typename FlatStart, typename FlatEnd>
-    constexpr void for_each_member_flatten(Type&& t, Function&& f, FlatStart&& fs, FlatEnd&& fe) {
-        static_assert(std::is_aggregate_v<std::decay_t<Type>>, "Cannot iterate over non-aggregate type or an array");
-        if constexpr (std::is_aggregate_v<std::decay_t<Type>>) {
+    template<template<size_t, size_t, typename, typename...> typename Action, typename Type, typename Function, typename FlatStart = details::DoNothingT, typename FlatEnd = details::DoNothingT>
+    constexpr void for_each_member_flatten(Type&& t, Function&& f, FlatStart&& fs = details::do_nothing_callback, FlatEnd&& fe = details::do_nothing_callback) {
+        static_assert(details::is_flattable_v<std::decay_t<Type>>, "Cannot iterate over non-aggregate type or an array");
+        if constexpr (details::is_flattable_v<std::decay_t<Type>>) {
             details::for_each_flatten<0, 0, Action, false>(get_view(t), std::forward<Function>(f), std::forward<FlatStart>(fs), std::forward<FlatEnd>(fe));
         }
     }
 
-    template<template<size_t, size_t, typename, typename...> typename Action, typename Type, typename Function>
-    constexpr void for_each_member_flatten(Type&& t, Function&& f) {
-        for_each_member_flatten<Action>(std::forward<Type>(t), std::forward<Function>(f), details::do_nothing_callback, details::do_nothing_callback);
+    template<typename Type, typename Function, typename FlatStart = details::DoNothingT, typename FlatEnd = details::DoNothingT>
+    constexpr void for_each_member_flatten(Type&& t, Function&& f, FlatStart&& fs = details::do_nothing_callback, FlatEnd&& fe = details::do_nothing_callback) {
+        for_each_member_flatten<FlatIfPossible>(std::forward<Type>(t), std::forward<Function>(f), std::forward<FlatStart>(fs), std::forward<FlatEnd>(fe));
     }
 
-    template<template<size_t, size_t, typename, typename...> typename Action, typename Type, typename Function, typename FlatStart, typename FlatEnd>
-    constexpr void for_each_member_flatten_silent(Type&& t, Function&& f, FlatStart&& fs, FlatEnd&& fe) {
-        static_assert(std::is_aggregate_v<std::decay_t<Type>>, "Cannot iterate over non-aggregate type or an array");
-        if constexpr (std::is_aggregate_v<std::decay_t<Type>>) {
+    template<template<size_t, size_t, typename, typename...> typename Action, typename Type, typename Function, typename FlatStart = details::DoNothingT, typename FlatEnd = details::DoNothingT>
+    constexpr void for_each_member_flatten_silent(Type&& t, Function&& f, FlatStart&& fs = details::do_nothing_callback, FlatEnd&& fe = details::do_nothing_callback) {
+        static_assert(details::is_flattable_v<std::decay_t<Type>>, "Cannot iterate over non-aggregate type or an array");
+        if constexpr (details::is_flattable_v<std::decay_t<Type>>) {
             details::for_each_flatten<0, 0, Action, true>(get_view(t), std::forward<Function>(f), std::forward<FlatStart>(fs), std::forward<FlatEnd>(fe));
         }
-    }
-
-    template<template<size_t, size_t, typename, typename...> typename Action, typename Type, typename Function>
-    constexpr void for_each_member_flatten_silent(Type&& t, Function&& f) {
-        for_each_member_flatten_silent<Action>(std::forward<Type>(t), std::forward<Function>(f), details::do_nothing_callback, details::do_nothing_callback);
     }
 
 } // namespace reflecto
